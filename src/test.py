@@ -11,7 +11,7 @@ from neural_nets import ConvNN
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-model_path = "../models/mnist_model.pt"
+model_path = "models/mnist_model.pt"
 retrain = True
 
 
