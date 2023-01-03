@@ -1,78 +1,100 @@
 #!/usr/bin/env python
 
-import unittest
 import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+from os.path import exists
 
 from neural_nets import ConvNN
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
+model_path = "../models/mnist_model.pt"
+retrain = True
 
-class TestConvNN(unittest.TestCase):
 
-    def setUp(self):
-        
+def train_mnist(model,batch_size,all_transforms,lr,epochs,device):
+
+
+    # load MNIST data
+    train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=all_transforms)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    loss_func = nn.CrossEntropyLoss()
+    optim = torch.optim.Adam(model.parameters(), lr=lr)
+    total_step = len(train_loader)
+
+    print('Training on device: {}'.format(device))
+    print('with training size: {}'.format(len(train_dataset)))
+    for epoch in range(epochs):
+        for i, (images, labels) in enumerate(train_loader):
+            images = images.to(device)
+            labels = labels.to(device)
+
+            # forward pass
+            outputs = model(images)
+            loss = loss_func(outputs, labels)
+
+            # backward pass
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
+
+        print('Epoch [{}/{}], Step [{}/{}], Loss: {:.3f}'.format(epoch+1, epochs, i+1, total_step, loss.item()))
+            
+    torch.save(model.state_dict(), model_path)
+    return model
+
+
+
+
+
+if __name__ ==  '__main__':
         # define environment
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # define hyperparameters
-        self.batch_size = 64
-        self.num_classes = 10
-        self.lr = 0.001
-        self.epochs = 10
-
+        batch_size = 100
+        num_classes = 10
+        lr = 0.001
+        epochs = 10
+        
+        
         # define MNIST transforms
-        self.all_transforms = transforms.Compose([
+        all_transforms = transforms.Compose([
             transforms.Resize((28,28)),
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
-        # load MNIST data
-        self.train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=self.all_transforms)
-        self.test_dataset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=self.all_transforms)
-        self.train_loader = torch.utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
-        self.test_loader = torch.utils.data.DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
-
-
-        print('Testing on device: {}'.format(self.device))
-        print('with training size: {}'.format(len(self.train_dataset)))
-
-
-    def test_setup(self):
-        self.assertEqual(self.batch_size,64)
-
-    def test_train(self):
-
-        model = ConvNN(self.num_classes).to(self.device)
-        print('model instantiated on device: {} with architecture:'.format(self.device))
+        # train model
+        model = ConvNN(num_classes).to(device)
+        print('model instantiated on device: {} with architecture:'.format(device))
         print(model)
-        loss_func = nn.CrossEntropyLoss()
-        optim = torch.optim.Adam(model.parameters(), lr=self.lr)
-        total_step = len(self.train_loader)
+        
+        if not exists(model_path):
+            print('no model, training new model')
+            model = train_mnist(model,batch_size,all_transforms,lr,epochs,device)
+        else:
+            print('model exists, loading model')
+            model.load_state_dict(torch.load(model_path))
 
-        for epoch in range(self.epochs):
-            for i, (images, labels) in enumerate(self.train_loader):
-                images = images.to(self.device)
-                labels = labels.to(self.device)
 
-                # forward pass
+        # test model
+        test_dataset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=all_transforms)
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        with torch.no_grad():
+            correct=0
+            total=0
+            for images, labels in test_loader:
+                images = images.to(device)
+                labels = labels.to(device)
                 outputs = model(images)
-                loss = loss_func(outputs, labels)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+            
+            print('Accuracy of the model on {} test images: {} %'.format(total, 100*correct/total))
 
-                # backward pass
-                optim.zero_grad()
-                loss.backward()
-                optim.step()
-
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.3f}'.format(epoch+1, self.epochs, i+1, total_step, loss.item()))
-                
-
-
-
-if __name__ ==  '__main__':
-    unittest.main(verbosity=2)
