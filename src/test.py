@@ -6,7 +6,7 @@ import torchvision
 import torchvision.transforms as transforms
 from os.path import exists
 
-from neural_nets import ConvNN
+from neural_nets import ConvNN, LeNet
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -15,11 +15,11 @@ model_path = "models/mnist_model.pt"
 retrain = True
 
 
-def train_mnist(model,batch_size,all_transforms,lr,epochs,device):
+def train_mnist(model,batch_size,transforms,lr,epochs,device):
 
 
     # load MNIST data
-    train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=all_transforms)
+    train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transforms)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     loss_func = nn.CrossEntropyLoss()
@@ -69,8 +69,12 @@ if __name__ ==  '__main__':
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
-        # train model
-        model = ConvNN(num_classes).to(device)
+        # train CNN
+        
+        
+        # model = ConvNN(num_classes).to(device)
+        model = LeNet(num_classes).to(device)
+
         print('model instantiated on device: {} with architecture:'.format(device))
         print(model)
         
