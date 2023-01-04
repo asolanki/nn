@@ -9,43 +9,62 @@ from os.path import exists
 from neural_nets import ConvNN, LeNet
 
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 
-model_path = "models/mnist_model.pt"
-retrain = True
+MODEL_DIRECTORY = "models/"
+
+MNIST_MODEL = 'mnist'
+
+def train(model,dataset,batch_size,transforms,lr,epochs,device):
+
+    print('Training model: {} \nWith dataset: {}'.format(model.__class__.__name__,dataset))
+
+    model_name = model.__class__.__name__ + '-' + dataset
+    model_path = MODEL_DIRECTORY +  model_name
+    print('\n',model,'\n')
+
+    if exists(model_path):
+        print('model exists, loading model from {}'.format(model_path))
+        model.load_state_dict(torch.load(model_path))
+        return model
+    else: 
+        # load data
+
+        # todo refactor to handle different datasets
+        if dataset == MNIST_MODEL:
+            train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transforms)
+            train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        else: 
+            throw('dataset not supported')
+
+        loss_func = nn.CrossEntropyLoss()
+        optim = torch.optim.Adam(model.parameters(), lr=lr)
+        total_step = len(train_loader)
 
 
-def train_mnist(model,batch_size,transforms,lr,epochs,device):
+        print('Training on device: {}'.format(device))
+        print('with training size: {}'.format(len(train_dataset)))
+        for epoch in range(epochs):
+            for i, (images, labels) in enumerate(train_loader):
+                images = images.to(device)
+                labels = labels.to(device)
 
+                # forward pass
+                outputs = model(images)
+                loss = loss_func(outputs, labels)
 
-    # load MNIST data
-    train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transforms)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+                # backward pass
+                optim.zero_grad()
+                loss.backward()
+                optim.step()
 
-    loss_func = nn.CrossEntropyLoss()
-    optim = torch.optim.Adam(model.parameters(), lr=lr)
-    total_step = len(train_loader)
+                if (i+1) % 400 == 0:
 
-    print('Training on device: {}'.format(device))
-    print('with training size: {}'.format(len(train_dataset)))
-    for epoch in range(epochs):
-        for i, (images, labels) in enumerate(train_loader):
-            images = images.to(device)
-            labels = labels.to(device)
-
-            # forward pass
-            outputs = model(images)
-            loss = loss_func(outputs, labels)
-
-            # backward pass
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-
-        print('Epoch [{}/{}], Step [{}/{}], Loss: {:.3f}'.format(epoch+1, epochs, i+1, total_step, loss.item()))
-            
-    torch.save(model.state_dict(), model_path)
-    return model
+                    print('Epoch [{}/{}], Step [{}/{}], Loss: {:.3f}'.format(epoch+1, epochs, i+1, total_step, loss.item()))
+                
+        torch.save(model.state_dict(), MODEL_DIRECTORY + model_name)
+        return model
 
 
 
@@ -62,29 +81,24 @@ if __name__ ==  '__main__':
         epochs = 10
         
         
-        # define MNIST transforms
+        dataset = MNIST_MODEL
         all_transforms = transforms.Compose([
             transforms.Resize((28,28)),
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
-        # train CNN
         
         
-        # model = ConvNN(num_classes).to(device)
-        model = LeNet(num_classes).to(device)
 
-        print('model instantiated on device: {} with architecture:'.format(device))
-        print(model)
-        
-        if not exists(model_path):
-            print('no model, training new model')
-            model = train_mnist(model,batch_size,all_transforms,lr,epochs,device)
-        else:
-            print('model exists, loading model')
-            model.load_state_dict(torch.load(model_path))
 
+        model = ConvNN(num_classes).to(device)
+        # model = LeNet(num_classes).to(device)
+
+        print('Hardware: {}'.format(device))
+
+        train(model,dataset,batch_size,all_transforms,lr,epochs,device)
+        
 
         # test model
         test_dataset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=all_transforms)
