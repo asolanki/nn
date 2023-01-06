@@ -1,6 +1,6 @@
 # venv
 nn_env/
-models/
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

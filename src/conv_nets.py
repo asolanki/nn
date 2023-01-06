@@ -5,7 +5,7 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 
-# define CNN class
+# define basic CNN class
 class ConvNN(nn.Module):
 
     def __init__(self, num_classes):
@@ -49,6 +49,7 @@ class ConvNN(nn.Module):
         return out
 
 # define LeNet class
+# http://yann.lecun.com/exdb/publis/pdf/lecun-01a.pdf
 class LeNet(nn.Module):
     def __init__(self, num_classes):
         super(LeNet, self).__init__()
