@@ -1,2 +1,2 @@
 # nn
-neural network practice
+Learning neural nets because why not?
